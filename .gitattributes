@@ -1,0 +1,13 @@
+raw_datasets/supplementary_dataset/hospitalizations.csv filter=lfs diff=lfs merge=lfs -text
+raw_datasets/supplementary_dataset/Global_vaccination_search_insights.csv filter=lfs diff=lfs merge=lfs -text
+raw_datasets/supplementary_dataset/by-sex.csv filter=lfs diff=lfs merge=lfs -text
+raw_datasets/supplementary_dataset/epidemiology.csv filter=lfs diff=lfs merge=lfs -text
+raw_datasets/supplementary_dataset/by-age.csv filter=lfs diff=lfs merge=lfs -text
+raw_datasets/supplementary_dataset/weather.csv filter=lfs diff=lfs merge=lfs -text
+raw_datasets/covariates_data/imputed-data.csv filter=lfs diff=lfs merge=lfs -text
+raw_datasets/covariates_data/raw-data.csv filter=lfs diff=lfs merge=lfs -text
+raw_datasets/main_dataset/forecasts_and_truth.csv filter=lfs diff=lfs merge=lfs -text
+raw_datasets/supplementary_dataset/mobility.csv filter=lfs diff=lfs merge=lfs -text
+raw_datasets/supplementary_dataset/vaccinations.csv filter=lfs diff=lfs merge=lfs -text
+raw_datasets/supplementary_dataset/facility-boundary-us-all.csv filter=lfs diff=lfs merge=lfs -text
+raw_datasets/supplementary_dataset/google-search-trends.csv filter=lfs diff=lfs merge=lfs -text
