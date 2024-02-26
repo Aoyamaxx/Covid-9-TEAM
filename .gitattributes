@@ -11,3 +11,5 @@ raw_datasets/supplementary_dataset/mobility.csv filter=lfs diff=lfs merge=lfs -t
 raw_datasets/supplementary_dataset/vaccinations.csv filter=lfs diff=lfs merge=lfs -text
 raw_datasets/supplementary_dataset/facility-boundary-us-all.csv filter=lfs diff=lfs merge=lfs -text
 raw_datasets/supplementary_dataset/google-search-trends.csv filter=lfs diff=lfs merge=lfs -text
+*.csv filter=lfs diff=lfs merge=lfs -text
+proccesed_data/filtered_main_dataset.csv filter=lfs diff=lfs merge=lfs -text
