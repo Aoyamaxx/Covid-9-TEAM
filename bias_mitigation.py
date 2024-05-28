@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from imblearn.combine import SMOTEENN
 from sklearn.model_selection import train_test_split, cross_val_score, KFold
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
@@ -52,8 +53,6 @@ df.drop(columns=dropping_columns, inplace=True)
 
 # Display final dataframe
 display(df)
-
-from imblearn.combine import SMOTEENN
 
 # Encoding state_type column for performing Random Forest after
 def encode_state_type(state):
