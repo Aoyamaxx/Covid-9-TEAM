@@ -1,4 +1,12 @@
 import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split, cross_val_score, KFold
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
+from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
+import seaborn as sns
+import scipy.stats as stats
 
 # Load the data
 df = pd.read_csv('processed_data/100k_population_data.csv', low_memory=False)
@@ -79,16 +87,6 @@ print(y_resampled_df['state_type_encoded'].value_counts())
 
 # Display new dataframe
 display(df)
-
-import pandas as pd
-import numpy as np
-from sklearn.model_selection import train_test_split, cross_val_score, KFold
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
-from sklearn.preprocessing import StandardScaler
-import matplotlib.pyplot as plt
-import seaborn as sns
-import scipy.stats as stats
 
 # Split the resampled data into train and test sets
 X_train, X_test, y_train, y_test = train_test_split(X_resampled, y_resampled, test_size=0.2, random_state=42)
