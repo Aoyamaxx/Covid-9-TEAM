@@ -74,7 +74,7 @@ def encode_state_type(state):
 sample_df['state_type'] = sample_df['state_type'].apply(encode_state_type)
 
 # Split data into features (X) and target variable (y)
-X = sample_df.drop(columns=['cases_per_100k'])
+X = sample_df.drop(columns=['cases_per_100k', 'total_population', 'inc cases'])
 y = sample_df['cases_per_100k']  
 
 # Training and testing sets
