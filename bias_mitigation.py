@@ -38,16 +38,10 @@ def get_state_type(row):
 df['state_type'] = df.apply(get_state_type, axis=1)
 
 # Drop unneeded columns
-columns_to_drop = ['blue_states', 'red_states', 'swing_states']
+columns_to_drop = ['blue_states', 'red_states', 'swing_states', 'target_end_date', 'location_key', 'location', 'new_hospitalized_patients', 'hospitalized_per_100k', 'unemployment_rate', 'year']
 
 # Drop the specified columns
 df = df.drop(columns=columns_to_drop)
-
-# Show specific columns
-columns_to_show = ['state_type', 'cases_per_100k']
-
-# Create new dataframe with these columns
-df = df[columns_to_show]
 
 # Displat dataframe
 display(df)
