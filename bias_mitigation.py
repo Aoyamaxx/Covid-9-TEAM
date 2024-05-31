@@ -91,7 +91,11 @@ def smoter_categorical(X, y, state_type, minority_class, k_neighbors=5, new_samp
     
     return X_res, y_res
 
-# Applying state_type data
+# Split data into features (X) and target variable (y)
+X = df.drop(columns=['cases_per_100k', 'total_population', 'inc cases'])
+y = df['cases_per_100k'] 
+
+# Generating synthetic samples and applying weightage to the state types
 np.random.seed(42)
 X = np.random.rand(100, 2)
 y = X[:, 0] * 3 + X[:, 1] * 2 + np.random.randn(100) * 0.1
