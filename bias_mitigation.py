@@ -48,7 +48,7 @@ df = df.drop(columns=columns_to_drop)
 # Dropping the nan in specific columns
 df = df.dropna(subset=['new_persons_fully_vaccinated', 'vaccinated_per_100k'])
 
-# Displat dataframe
+# Display dataframe
 display(df)
 
 # Split data into features (X) and target variable (y)
