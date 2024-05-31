@@ -1,11 +1,13 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
+import seaborn as sns
 import matplotlib.pyplot as plt
-from sklearn.model_selection import train_test_split
-from sklearn.model_selection import train_test_split, cross_val_score, KFold
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
+from sklearn.metrics import mean_absolute_error
 from scipy.stats import f_oneway
+from sklearn.neighbors import NearestNeighbors
+from sklearn.model_selection import train_test_split, cross_val_score, KFold
+from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
+from sklearn.linear_model import LinearRegression
 
 # Load dataset
 df = pd.read_csv('processed_data/100k_population_data.csv', low_memory=False)
@@ -43,97 +45,96 @@ columns_to_drop = ['blue_states', 'red_states', 'swing_states', 'target_end_date
 # Drop the specified columns
 df = df.drop(columns=columns_to_drop)
 
+# Dropping the nan in specific columns
+df = df.dropna(subset=['new_persons_fully_vaccinated', 'vaccinated_per_100k'])
+
 # Displat dataframe
 display(df)
 
-# Define strata
-strata = df['state_type'].unique()
-
-# Perform stratified sampling
-sample_df = pd.DataFrame(columns=df.columns)
-
-for stratum in strata:
-    stratum_df = df[df['state_type'] == stratum]
-    stratum_size = int(0.8 * len(stratum_df))  # Adjust the sample size as needed
-    stratum_sample = stratum_df.sample(n=stratum_size, random_state=42)
-    sample_df = pd.concat([sample_df, stratum_sample])
-
-# Display the stratifies sample
-print("Stratified sample:")
-display(sample_df)
-
-# Define encode_state_type function
-def encode_state_type(state):
-    if state == 'Blue':
-        return 0
-    elif state == 'Red':
-        return 1
-    else: 
-        return 2 # For Swing states
-
-sample_df['state_type'] = sample_df['state_type'].apply(encode_state_type)
-
 # Split data into features (X) and target variable (y)
-X = sample_df.drop(columns=['cases_per_100k', 'total_population', 'inc cases'])
-y = sample_df['cases_per_100k']  
+X = df.drop(columns=['cases_per_100k', 'total_population', 'inc cases'])
+y = df['cases_per_100k'] 
 
-# Training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.1, random_state=42)
+# Define smoter categorical function
+def smoter_categorical(X, y, state_type, minority_class, k_neighbors=5, new_samples=100):
+    # Identify minority samples based on the categorical condition
+    minority_indices = np.where(state_type == minority_class)[0]
+    minority_samples = X[minority_indices]
+    minority_targets = y[minority_indices]
+    
+    # Fit nearest neighbors on minority samples
+    nbrs = NearestNeighbors(n_neighbors=k_neighbors).fit(minority_samples)
+    synthetic_samples = []
+    synthetic_targets = []
+    
+    for _ in range(new_samples):
+        # Randomly choose a minority sample
+        idx = np.random.choice(minority_indices)
+        sample = minority_samples[np.where(minority_indices == idx)[0][0]]
+        target = minority_targets[np.where(minority_indices == idx)[0][0]]
+        
+        # Find neighbors and create a synthetic sample
+        _, neighbors = nbrs.kneighbors([sample])
+        neighbor_idx = neighbors[0][np.random.randint(1, k_neighbors)]
+        neighbor_sample = minority_samples[neighbor_idx]
+        neighbor_target = minority_targets[neighbor_idx]
+        
+        synthetic_sample = sample + np.random.rand() * (neighbor_sample - sample)
+        synthetic_target = target + np.random.rand() * (neighbor_target - target)
+        
+        synthetic_samples.append(synthetic_sample)
+        synthetic_targets.append(synthetic_target)
+    
+    # Combine original and synthetic samples
+    X_res = np.vstack((X, np.array(synthetic_samples)))
+    y_res = np.hstack((y, np.array(synthetic_targets)))
+    
+    return X_res, y_res
 
-# Initialize and train the Random Forest model
-rf_model = RandomForestRegressor(random_state=42)
-rf_model.fit(X_train, y_train)
+# Applying state_type data
+np.random.seed(42)
+X = np.random.rand(100, 2)
+y = X[:, 0] * 3 + X[:, 1] * 2 + np.random.randn(100) * 0.1
+state_type = np.array(['Blue'] * 60 + ['Red'] * 30 + ['Swing'] * 10)
 
-# Evaluate the model
-y_pred = rf_model.predict(X_test)
-r2 = r2_score(y_test, y_pred)
-rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+# Split the data
+X_train, X_test, y_train, y_test, state_type_train, state_type_test = train_test_split(
+    X, y, state_type, test_size=0.3, random_state=42)
 
-# Cross-validation
-cv = KFold(n_splits=5, random_state=42, shuffle=True)
-cv_scores = cross_val_score(rf_model, X_train, y_train, cv=cv, scoring='neg_mean_squared_error')
-cv_rmse_scores = np.sqrt(-cv_scores)
+# Apply custom SMOTER for categorical minority group
+X_res, y_res = smoter_categorical(X_train, y_train, state_type_train, 'Blue', k_neighbors=5, new_samples=50)
 
-# Print evaluation metrics
-print(f'R2: {r2:.4f}')
-print(f'Test RMSE: {rmse:.4f}')
-print(f'Cross-Validation RMSE: {cv_rmse_scores.mean():.4f} (+/- {cv_rmse_scores.std():.4f})')
+# Train the model on resampled data
+model = LinearRegression()
+model.fit(X_res, y_res)
 
-# Create DataFrame with actual and predicted values
-y_test_df = pd.DataFrame({
-    'cases_per_100k': y_test,  # Actual values
-    'state_type': X_test['state_type'],  # Encoded state type
-    'predicted': y_pred  # Predicted values
-})
+# Predict the target variable for the test data
+y_pred = model.predict(X_test)
 
-# Define a function to calculate RMSE
-def calculate_rmse(group):
-    return np.sqrt(mean_squared_error(group['cases_per_100k'], group['predicted']))
+# Create a DataFrame containing true target values, predicted values, and state types
+y_test_df = pd.DataFrame({'cases_per_100k': y_test, 'predicted': y_pred, 'state_type': state_type_test})
 
-# Group by state type and calculate RMSE for each group
-rmse_by_state_type = y_test_df.groupby('state_type').apply(calculate_rmse).reset_index()
+# Calculate RMSE per state type
+rmse_by_state_type = y_test_df.groupby('state_type').apply(lambda x: np.sqrt(mean_squared_error(x['cases_per_100k'], x['predicted']))).reset_index()
 rmse_by_state_type.columns = ['State Type', 'RMSE']
 
-# AIC calculation
-n = len(y_test)
-rss = np.sum((y_test - y_pred) ** 2)
-k_rf = len(rf_model.estimators_) + 1
-aic_rf = n * np.log(rss / n) + 2 * k_rf
-print(f'Random Forest AIC: {aic_rf:.4f}')
-
-# Additional model evaluation metrics
-test_mae = mean_absolute_error(y_test, y_pred)
-print(f'Test MAE: {test_mae:.4f}')
+# Plot RMSE by state type
+plt.figure(figsize=(10, 6))
+sns.barplot(x='State Type', y='RMSE', data=rmse_by_state_type)
+plt.title('RMSE by State Type')
+plt.xlabel('State Type')
+plt.ylabel('RMSE')
+plt.show()
 
 # ANOVA F-value and p-value
-f_value, p_value = f_oneway(sample_df[sample_df['state_type'] == 0]['cases_per_100k'],
-                             sample_df[sample_df['state_type'] == 1]['cases_per_100k'],
-                             sample_df[sample_df['state_type'] == 2]['cases_per_100k'])
+f_value, p_value = f_oneway(df[df['state_type'] == 'Blue']['cases_per_100k'],
+                             df[df['state_type'] == 'Red']['cases_per_100k'],
+                             df[df['state_type'] == 'Swing']['cases_per_100k'])
 print("ANOVA F-value:", f_value)
 print("p-value:", p_value)
 
 # Demographic Parity
-demographic_parity = sample_df.groupby('state_type')['cases_per_100k'].mean().reset_index()
+demographic_parity = df.groupby('state_type')['cases_per_100k'].mean().reset_index()
 demographic_parity.columns = ['State Type', 'Mean Predicted Value']
 print("\nDemographic Parity:\n", demographic_parity)
 
@@ -142,7 +143,7 @@ print("\nDemographic Parity:\n", demographic_parity)
 residuals = y_test - y_pred
 
 # Create a DataFrame with residuals and state_type
-results_df = pd.DataFrame({'Residuals': residuals, 'state_type': X_test['state_type']})
+results_df = pd.DataFrame({'Residuals': residuals, 'state_type': state_type_test})
 
 # Group by state_type and calculate mean and standard deviation of residuals
 residuals_by_state_type = results_df.groupby('state_type').agg({'Residuals': [list, np.mean, np.std]}).reset_index()
@@ -160,6 +161,6 @@ print("\nPredictive Parity (Mean Absolute Error):")
 print(mae_by_state_type)
 
 # Data Points Count by State Type
-data_points_count = sample_df['state_type'].value_counts().reset_index()
+data_points_count = df['state_type'].value_counts().reset_index()
 data_points_count.columns = ['State Type', 'Counts']
 print("\nData Points Count by State Type:\n", data_points_count)
