@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import mean_absolute_error
 from scipy.stats import f_oneway
 from sklearn.neighbors import NearestNeighbors
-from sklearn.model_selection import train_test_split, cross_val_score, KFold
-from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
-from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, mean_absolute_error
+from sklearn.ensemble import RandomForestRegressor
 
 # Load dataset
 df = pd.read_csv('processed_data/100k_population_data.csv', low_memory=False)
@@ -48,17 +48,31 @@ df = df.drop(columns=columns_to_drop)
 # Dropping the nan in specific columns
 df = df.dropna(subset=['new_persons_fully_vaccinated', 'vaccinated_per_100k'])
 
-# Display dataframe
+# Define encode_state_type function
+def encode_state_type(state):
+    if state == 'Blue':
+        return 0
+    elif state == 'Red':
+        return 1
+    else: 
+        return 2 # For Swing states
+
+# Apply encode_state_type to the DataFrame
+df['state_type_encoded'] = df['state_type'].apply(encode_state_type)
+
+# Drop state_type column
+df = df.drop(columns=['state_type'])
+
+# Displat dataframe
 display(df)
 
-# Split data into features (X) and target variable (y)
-X = df.drop(columns=['cases_per_100k', 'total_population', 'inc cases'])
-y = df['cases_per_100k'] 
-
-# Define smoter categorical function
+# Define smoter_categorical function
 def smoter_categorical(X, y, state_type, minority_class, k_neighbors=5, new_samples=100):
     # Identify minority samples based on the categorical condition
     minority_indices = np.where(state_type == minority_class)[0]
+    if len(minority_indices) == 0:
+        raise ValueError(f"No samples found for minority class '{minority_class}'")
+    
     minority_samples = X[minority_indices]
     minority_targets = y[minority_indices]
     
@@ -93,23 +107,18 @@ def smoter_categorical(X, y, state_type, minority_class, k_neighbors=5, new_samp
 
 # Split data into features (X) and target variable (y)
 X = df.drop(columns=['cases_per_100k', 'total_population', 'inc cases'])
-y = df['cases_per_100k'] 
-
-# Generating synthetic samples and applying weightage to the state types
-np.random.seed(42)
-X = np.random.rand(100, 2)
-y = X[:, 0] * 3 + X[:, 1] * 2 + np.random.randn(100) * 0.1
-state_type = np.array(['Blue'] * 60 + ['Red'] * 30 + ['Swing'] * 10)
+y = df['cases_per_100k']
+state_type = df['state_type_encoded']
 
 # Split the data
 X_train, X_test, y_train, y_test, state_type_train, state_type_test = train_test_split(
     X, y, state_type, test_size=0.3, random_state=42)
 
 # Apply custom SMOTER for categorical minority group
-X_res, y_res = smoter_categorical(X_train, y_train, state_type_train, 'Blue', k_neighbors=5, new_samples=50)
+X_res, y_res = smoter_categorical(X_train.values, y_train.values, state_type_train.values, 0, k_neighbors=5, new_samples=50)
 
-# Train the model on resampled data
-model = LinearRegression()
+# Train the Random Forest model on resampled data
+model = RandomForestRegressor(n_estimators=100, random_state=42)
 model.fit(X_res, y_res)
 
 # Predict the target variable for the test data
@@ -131,14 +140,14 @@ plt.ylabel('RMSE')
 plt.show()
 
 # ANOVA F-value and p-value
-f_value, p_value = f_oneway(df[df['state_type'] == 'Blue']['cases_per_100k'],
-                             df[df['state_type'] == 'Red']['cases_per_100k'],
-                             df[df['state_type'] == 'Swing']['cases_per_100k'])
+f_value, p_value = f_oneway(df[df['state_type_encoded'] == 0]['cases_per_100k'],
+                             df[df['state_type_encoded'] == 1]['cases_per_100k'],
+                             df[df['state_type_encoded'] == 2]['cases_per_100k'])
 print("ANOVA F-value:", f_value)
 print("p-value:", p_value)
 
 # Demographic Parity
-demographic_parity = df.groupby('state_type')['cases_per_100k'].mean().reset_index()
+demographic_parity = df.groupby('state_type_encoded')['cases_per_100k'].mean().reset_index()
 demographic_parity.columns = ['State Type', 'Mean Predicted Value']
 print("\nDemographic Parity:\n", demographic_parity)
 
@@ -165,6 +174,6 @@ print("\nPredictive Parity (Mean Absolute Error):")
 print(mae_by_state_type)
 
 # Data Points Count by State Type
-data_points_count = df['state_type'].value_counts().reset_index()
+data_points_count = df['state_type_encoded'].value_counts().reset_index()
 data_points_count.columns = ['State Type', 'Counts']
 print("\nData Points Count by State Type:\n", data_points_count)
